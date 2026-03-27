@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unicode Art Generator</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #f0f2f5; color: #333; }
+        .container { max-width: 900px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        input { width: 100%; padding: 12px; margin-top: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
+        .output-section { margin-top: 25px; }
+        .art-box { 
+            background: #222; color: #ffffff; padding: 15px; border-radius: 6px; 
+            white-space: pre; font-family: "Courier New", Courier, monospace; overflow-x: auto; font-size: 14px; line-height: 1.0;
+            min-height: 20px; margin-top: 10px; border: 2px solid #444;
+        }
+        .btn-group { margin-top: 10px; display: flex; gap: 10px; }
+        button { 
+            padding: 10px 20px; cursor: pointer; border: none; border-radius: 6px; 
+            background: #007bff; color: white; font-weight: bold; transition: 0.3s;
+        }
+        button:hover { background: #0056b3; }
+        button.copy-btn { background: #28a745; }
+        h2 { border-bottom: 2px solid #007bff; padding-bottom: 10px; margin-top: 0; }
+        h3 { margin-bottom: 5px; color: #555; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🎨 Unicode Art Generator</h2>
+    <p>文字を入力してください（1-9, A-Z）</p>
+    
+    <input type="text" id="userInput" placeholder="例: HELLO123" oninput="generateArt()">
+
+    <div class="output-section">
+        <h3>▶ 横方向に連結</h3>
+        <div id="horizontalOutput" class="art-box"></div>
+        <div class="btn-group">
+            <button class="copy-btn" onclick="copyToClipboard('horizontalOutput')">横書きをコピー</button>
+        </div>
+    </div>
+
+    <div class="output-section">
+        <h3>▼ 縦方向に連結</h3>
+        <div id="verticalOutput" class="art-box"></div>
+        <div class="btn-group">
+            <button class="copy-btn" onclick="copyToClipboard('verticalOutput')">縦書きをコピー</button>
+        </div>
+    </div>
+</div>
+
+<script>
+function getVisualWidth(str) {
+    let width = 0;
+    for (let i = 0; i < str.length; i++) {
+        const code = str.charCodeAt(i);
+        width += (code > 255) ? 2 : 1;
+    }
+    return width;
+}
+
+function padToWidth(str, targetWidth) {
+    let currentWidth = getVisualWidth(str);
+    let diff = targetWidth - currentWidth;
+    if (diff <= 0) return str;
+    let zenkakuCount = Math.floor(diff / 2);
+    let hankakuCount = diff % 2;
+    return str + "　".repeat(zenkakuCount) + " ".repeat(hankakuCount);
+}
+
+const dictionary = {
+    '1': ["┏━━┓", "┏┛　　┃", "┗┓　　┃", "　┃　　┃", "　┃　　┃", "┏┛　　┗┓", "┗━━━━┛"],
+    '2': ["┏━━━━┓", "┗━━━┓┃", "┏━━━┛┃", "┃┏━━━┛", "┃┗━━━┓", "┗━━━━┛"],
+    '3': ["┏━━━━┓", "┗━━┓　┃", "┏━━┛　┃", "┗━━┓　┃", "┏━━┛　┃", "┗━━━━┛"],
+    '4': ["┏━┓┏━┓", "┃　┃┃　┃", "┃　┗┛　┃", "┗━━┓　┃", "　　　┃　┃", "　　　┗━┛"],
+    '5': ["┏━━━━┓", "┃　┏━━┛", "┃　┗━━┓", "┗━━┓　┃", "┏━━┛　┃", "┗━━━━┛"],
+    '6': ["┏━━━━┓", "┃　┏━━┛", "┃　┗━━┓", "┃　┏━┓┃", "┃　┗━┛┃", "┗━━━━┛"],
+    '7': ["┏━━━━┓", "┗━━┓　┃", "　　　┃　┃", "　　　┃　┃", "　　　┃　┃", "　　　┗━┛"],
+    '8': ["┏━━━━┓", "┃┏━━┓┃", "┃┗━━┛┃", "┃┏━━┓┃", "┃┗━━┛┃", "┗━━━━┛"],
+    '9': ["┏━━━━┓", "┃┏━┓　┃", "┃┗━┛　┃", "┗━━┓　┃", "┏━━┛　┃", "┗━━━━┛"],
+    'A': ["┏━━━━┓", "┃　┏┓　┃", "┃　┣┫　┃", "┃　┣┫　┃", "┃　┃┃　┃", "┗━┛┗━┛"],
+    'B': ["┏━━━━┓", "┃┏━┓　┃", "┃┣━╋━┫", "┃┣━╋━┫", "┃┗━┛　┃", "┗━━━━┛"],
+    'C': ["┏━━━━┓", "┃　┏━━┛", "┃　┃", "┃　┃", "┃　┗━━┓", "┗━━━━┛"],
+    'D': ["┏━━━━┓", "┃┏━┓　┃", "┃┃　┃　┃", "┃┃　┃　┃", "┃┗━┛　┃", "┗━━━━┛"],
+    'E': ["┏━━━━┓", "┃　┏━━┛", "┃　┗━━┓", "┃　┏━━┛", "┃　┗━━┓", "┗━━━━┛"],
+    'F': ["┏━━━━┓", "┃　┏━━┛", "┃　┗━━┓", "┃　┏━━┛", "┃　┃", "┗━┛"],
+    'G': ["┏━━━━┓", "┃　┏━━┛", "┃　┃┏━┓", "┃　┃┗┓┃", "┃　┗━┛┃", "┗━━━━┛"],
+    'H': ["┏━┓┏━┓", "┃　┃┃　┃", "┃　┗┛　┃", "┃　┏┓　┃", "┃　┃┃　┃", "┗━┛┗━┛"],
+    'I': ["┏━━━━┓", "┗┓　　┏┛", "　┃　　┃", "　┃　　┃", "┏┛　　┗┓", "┗━━━━┛"],
+    'J': ["　　　┏━┓", "　　　┃　┃", "┏━┓┃　┃", "┃　┃┃　┃", "┃　┗┛　┃", "┗━━━━┛"],
+    'K': ["┏━┓", "┃　┃┏━┓", "┃　┗┛　┃", "┃　┏┓　┃", "┃　┃┗━┛", "┗━┛"],
+    'L': ["┏━┓", "┃　┃", "┃　┃", "┃　┃", "┃　┗━━┓", "┗━━━━┛"],
+    'M': ["┏┓　　┏┓", "┃┗━━┛┃", "┃┏┓┏┓┃", "┃┃┗┛┃┃", "┃┃　　┃┃", "┗┛　　┗┛"],
+    'N': ["┏┓　　┏┓", "┃┃　　┃┃", "┃┃┗　┃┃", "┃┃　┗┃┃", "┃┃　　┃┃", "┗┛　　┗┛"],
+    'O': ["┏━━━━┓", "┃┏━━┓┃", "┃┃　　┃┃", "┃┃　　┃┃", "┃┗━━┛┃", "┗━━━━┛"],
+    'P': ["┏━━━━┓", "┃　┏━┓┃", "┃　┗━┛┃", "┃　┏━━┛", "┃　┃", "┗━┛"],
+    'Q': ["┏━━━┓", "┃┏━┓┃", "┃┃　┃┃", "┃┗━┛┗┓", "┗━━━━┛"],
+    'R': ["┏━━━━┓", "┃　┏━┓┃", "┃　┣━┛┃", "┃　┣━┳┛", "┃　┣━┛", "┗━┛"],
+    'S': ["┏━━━━┓", "┃　┏━━┛", "┃　┗━━┓", "┗━━━┓┃", "┏━━━┛┃", "┗━━━━┛"],
+    'T': ["┏━━━━┓", "┗━┓┏━┛", "　　┃┃", "　　┃┃", "　　┃┃", "　　┗┛"],
+    'U': ["┏━┓┏━┓", "┃　┃┃　┃", "┃　┃┃　┃", "┃　┗┛　┃", "┗━━━━┛"],
+    'V': ["┏┓　　┏┓", "┃┃　　┃┃", "┃┗┓┏┛┃", "┗┓┗┛┏┛", "　┗━━┛"],
+    'W': ["┏┓　　┏┓", "┃┃　　┃┃", "┃┃┏┓┃┃", "┃┃┃┃┃┃", "┃┃┃┃┃┃", "┗┻┛┗┻┛"],
+    'X': ["┏━┓┏━┓", "┗┓┗┛┏┛", "　┗┓┏┛", "　┏┛┗┓", "┏┛┏┓┗┓", "┗━┛┗━┛"],
+    'Y': ["┏┓　　┏┓", "┃┗┓┏┛┃", "┗┓┗┛┏┛", "　┗┓┏┛", "　　┃┃", "　　┗┛"],
+    'Z': ["┏━━━━┓", "┗━━┓　┃", "　　┏┛┏┛", "　┏┛┏┛", "┏┛　┗━┓", "┗━━━━┛"]
+};
+
+function generateArt() {
+    const input = document.getElementById('userInput').value.toUpperCase();
+    const hOutput = document.getElementById('horizontalOutput');
+    const vOutput = document.getElementById('verticalOutput');
+    
+    if (!input) {
+        hOutput.textContent = ""; vOutput.textContent = ""; return;
+    }
+
+    let maxRows = 0;
+    for (let char of input) {
+        if (dictionary[char]) maxRows = Math.max(maxRows, dictionary[char].length);
+    }
+    
+    let hRows = Array(maxRows).fill("");
+
+    for (let char of input) {
+        if (dictionary[char]) {
+            const lines = dictionary[char];
+            let charMaxWidth = 0;
+            lines.forEach(l => {
+                charMaxWidth = Math.max(charMaxWidth, getVisualWidth(l));
+            });
+
+            for (let r = 0; r < maxRows; r++) {
+                hRows[r] += padToWidth(lines[r] || "", charMaxWidth);
+            }
+        }
+    }
+    hOutput.textContent = hRows.map(row => row.trimEnd()).join("\n");
+
+    let vList = [];
+    for (let char of input) {
+        if (dictionary[char]) {
+            vList.push(dictionary[char].join("\n"));
+        }
+    }
+    vOutput.textContent = vList.join("\n").trim();
+}
+
+function copyToClipboard(elementId) {
+    const text = document.getElementById(elementId).textContent;
+    if (!text) return;
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textArea);
+    alert("コピーしました！");
+}
+</script>
+
+</body>
+</html>
+
